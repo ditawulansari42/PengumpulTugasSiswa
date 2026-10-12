@@ -53,8 +53,7 @@
   </div>
 
   <script>
-    // URL Web App Terbaru (Version 3)
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxm-LyygSr-1A_r6EPVwc7Yi-L1Vxc49HOqo0TpSY4PTYTgZlOQ8qCkiyuMZtpgwQYKMw/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycby_wKzwtmH6cAldUKPZV2cINztX8b-6H6UUNHvM_8sJGI9zd3tiXFf5KU7YpEiQofnG/exec";
 
     let capturedBase64 = null;
     let capturedMimeType = null;
@@ -88,12 +87,12 @@
     function takeSnapshot() {
       const video = document.getElementById('webcam');
       const canvas = document.getElementById('canvas');
-      canvas.width = 600;
-      canvas.height = (video.videoHeight / video.videoWidth) * 600;
+      canvas.width = 800;
+      canvas.height = (video.videoHeight / video.videoWidth) * 800;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
       capturedBase64 = dataUrl.split(',')[1];
       capturedMimeType = 'image/jpeg';
       
@@ -128,13 +127,13 @@
               img.src = event.target.result;
               img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 600;
+                const MAX_WIDTH = 800;
                 const scaleSize = MAX_WIDTH / img.width;
                 canvas.width = MAX_WIDTH;
                 canvas.height = img.height * scaleSize;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                resolve(canvas.toDataURL('image/jpeg', 0.5).split(',')[1]);
+                resolve(canvas.toDataURL('image/jpeg', 0.6).split(',')[1]);
               };
             } else {
               resolve(event.target.result.split(',')[1]);
@@ -151,6 +150,7 @@
         return;
       }
 
+      // Format payload menggunakan URLSearchParams agar kompatibel penuh dengan Google Apps Script
       const formData = new URLSearchParams();
       formData.append("nama", document.getElementById('nama').value);
       formData.append("kelas", document.getElementById('kelas').value);
@@ -160,18 +160,21 @@
       formData.append("fileData", fileData);
 
       try {
-        await fetch(GAS_URL, {
+        const response = await fetch(GAS_URL, {
           method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: formData.toString()
+          body: formData
         });
         
-        statusMsg.innerText = "Tugas berhasil dikirim!";
-        statusMsg.className = "mt-4 text-center text-sm font-semibold text-green-600";
-        document.getElementById('uploadForm').reset();
-        stopCamera();
-        capturedBase64 = null;
+        const result = await response.json();
+        if (result.status === "success") {
+          statusMsg.innerText = "Tugas berhasil dikirim!";
+          statusMsg.className = "mt-4 text-center text-sm font-semibold text-green-600";
+          document.getElementById('uploadForm').reset();
+          stopCamera();
+          capturedBase64 = null;
+        } else {
+          throw new Error(result.message);
+        }
       } catch (err) {
         statusMsg.innerText = "Gagal mengirim: " + err.message;
         statusMsg.className = "mt-4 text-center text-sm font-semibold text-red-600";
