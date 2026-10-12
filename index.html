@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pengumpulan Portofolio Tugas Siswa</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen p-4 flex items-center justify-center">
+
+  <div class="bg-white p-6 rounded-xl shadow-md w-full max-w-md">
+    <h2 class="text-2xl font-bold text-center text-blue-600 mb-4">Portofolio Tugas Siswa</h2>
+    
+    <form id="uploadForm" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Nama Lengkap</label>
+        <input type="text" id="nama" required class="w-full mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Kelas</label>
+        <input type="text" id="kelas" required class="w-full mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Mata Pelajaran / Judul Tugas</label>
+        <input type="text" id="mapel" required class="w-full mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+      </div>
+
+      <!-- Opsi Input File/Kamera -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Pilih Metode Upload</label>
+        <div class="flex gap-2">
+          <button type="button" onclick="showOption('file')" class="flex-1 bg-gray-200 py-2 rounded-lg text-sm font-semibold hover:bg-gray-300">Unggah File/Foto</button>
+          <button type="button" onclick="showOption('camera')" class="flex-1 bg-gray-200 py-2 rounded-lg text-sm font-semibold hover:bg-gray-300">Foto Langsung</button>
+        </div>
+      </div>
+
+      <!-- Mode 1: File Input -->
+      <div id="fileInputArea" class="block">
+        <input type="file" id="fileInput" accept="image/*,application/pdf" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700">
+      </div>
+
+      <!-- Mode 2: Camera Live Input -->
+      <div id="cameraInputArea" class="hidden text-center space-y-2">
+        <video id="webcam" autoplay playsinline class="w-full h-48 bg-black rounded-lg object-cover"></video>
+        <button type="button" onclick="takeSnapshot()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">Ambil Foto</button>
+        <canvas id="canvas" class="hidden"></canvas>
+        <p id="camStatus" class="text-xs text-gray-500"></p>
+      </div>
+
+      <button type="submit" id="submitBtn" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 transition duration-200">Kirim Tugas</button>
+    </form>
+
+    <div id="statusMessage" class="mt-4 text-center text-sm font-semibold"></div>
+  </div>
+
+  <script>
+    // TEMPELKAN URL WEB APP ANDA DI DALAM TANDA KUTIP DI BAWAH INI
+    const GAS_URL = "https://script.google.com/macros/s/AKfycby_wKzwtmH6cAldUKPZV2cINztX8b-6H6UUNHvM_8sJGI9zd3tiXFf5KU7YpEiQofnG/exec";
+
+    let capturedBase64 = null;
+    let capturedMimeType = null;
+    let stream = null;
+
+    function showOption(option) {
+      if (option === 'file') {
+        document.getElementById('fileInputArea').classList.remove('hidden');
+        document.getElementById('cameraInputArea').classList.add('hidden');
+        stopCamera();
+      } else {
+        document.getElementById('fileInputArea').classList.add('hidden');
+        document.getElementById('cameraInputArea').classList.remove('hidden');
+        startCamera();
+      }
+    }
+
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: "environment" } 
+        });
+        document.getElementById('webcam').srcObject = stream;
+      } catch (err) {
+        alert("Tidak dapat mengakses kamera: " + err.message);
+      }
+    }
+
+    function stopCamera() {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    }
+
+    function takeSnapshot() {
+      const video = document.getElementById('webcam');
+      const canvas = document.getElementById('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const dataUrl = canvas.toDataURL('image/jpeg');
+      capturedBase64 = dataUrl.split(',')[1];
+      capturedMimeType = 'image/jpeg';
+      
+      document.getElementById('camStatus').innerText = "Foto berhasil diambil!";
+      document.getElementById('camStatus').classList.add('text-green-600');
+    }
+
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const submitBtn = document.getElementById('submitBtn');
+      const statusMsg = document.getElementById('statusMessage');
+
+      submitBtn.disabled = true;
+      submitBtn.innerText = "Mengirim...";
+      statusMsg.innerText = "";
+
+      let fileData = capturedBase64;
+      let mimeType = capturedMimeType;
+      let fileName = `${document.getElementById('nama').value}_${document.getElementById('mapel').value}.jpg`;
+
+      const fileInput = document.getElementById('fileInput');
+      if (!fileData && fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        mimeType = file.type;
+        fileName = `${document.getElementById('nama').value}_${file.name}`;
+        fileData = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.readAsDataURL(file);
+        });
+      }
+
+      if (!fileData) {
+        alert("Silakan pilih file atau ambil foto terlebih dahulu!");
+        submitBtn.disabled = false;
+        submitBtn.innerText = "Kirim Tugas";
+        return;
+      }
+
+      const payload = {
+        nama: document.getElementById('nama').value,
+        kelas: document.getElementById('kelas').value,
+        mapel: document.getElementById('mapel').value,
+        fileData: fileData,
+        mimeType: mimeType,
+        fileName: fileName
+      };
+
+      try {
+        const response = await fetch(GAS_URL, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        if (result.status === "success") {
+          statusMsg.innerText = "Tugas berhasil terkirim!";
+          statusMsg.className = "mt-4 text-center text-sm font-semibold text-green-600";
+          document.getElementById('uploadForm').reset();
+          stopCamera();
+          capturedBase64 = null;
+        } else {
+          throw new Error(result.message);
+        }
+      } catch (err) {
+        statusMsg.innerText = "Gagal mengirim: " + err.message;
+        statusMsg.className = "mt-4 text-center text-sm font-semibold text-red-600";
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerText = "Kirim Tugas";
+      }
+    });
+  </script>
+</body>
+</html>
