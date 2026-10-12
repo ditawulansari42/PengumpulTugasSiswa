@@ -27,7 +27,6 @@
         <input type="text" id="mapel" required class="w-full mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
       </div>
 
-      <!-- Opsi Input File/Kamera -->
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-2">Pilih Metode Upload</label>
         <div class="flex gap-2">
@@ -36,12 +35,10 @@
         </div>
       </div>
 
-      <!-- Mode 1: File Input -->
       <div id="fileInputArea" class="block">
         <input type="file" id="fileInput" accept="image/*,application/pdf" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700">
       </div>
 
-      <!-- Mode 2: Camera Live Input -->
       <div id="cameraInputArea" class="hidden text-center space-y-2">
         <video id="webcam" autoplay playsinline class="w-full h-48 bg-black rounded-lg object-cover"></video>
         <button type="button" onclick="takeSnapshot()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">Ambil Foto</button>
@@ -56,7 +53,6 @@
   </div>
 
   <script>
-    // TEMPELKAN URL WEB APP ANDA DI DALAM TANDA KUTIP DI BAWAH INI
     const GAS_URL = "https://script.google.com/macros/s/AKfycby_wKzwtmH6cAldUKPZV2cINztX8b-6H6UUNHvM_8sJGI9zd3tiXFf5KU7YpEiQofnG/exec";
 
     let capturedBase64 = null;
@@ -77,9 +73,7 @@
 
     async function startCamera() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: "environment" } 
-        });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
         document.getElementById('webcam').srcObject = stream;
       } catch (err) {
         alert("Tidak dapat mengakses kamera: " + err.message);
@@ -87,20 +81,19 @@
     }
 
     function stopCamera() {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
+      if (stream) stream.getTracks().forEach(track => track.stop());
     }
 
     function takeSnapshot() {
       const video = document.getElementById('webcam');
       const canvas = document.getElementById('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = 800; // Kompres ukuran lebar gambar
+      canvas.height = (video.videoHeight / video.videoWidth) * 800;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      const dataUrl = canvas.toDataURL('image/jpeg');
+      // Kualitas gambar di-compress ke 0.7 (70%)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
       capturedBase64 = dataUrl.split(',')[1];
       capturedMimeType = 'image/jpeg';
       
@@ -126,9 +119,28 @@
         const file = fileInput.files[0];
         mimeType = file.type;
         fileName = `${document.getElementById('nama').value}_${file.name}`;
+        
+        // Kompres jika mengunggah file gambar dari HP
         fileData = await new Promise((resolve) => {
           const reader = new FileReader();
-          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.onload = (event) => {
+            if (file.type.startsWith('image/')) {
+              const img = new Image();
+              img.src = event.target.result;
+              img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 1000;
+                const scaleSize = MAX_WIDTH / img.width;
+                canvas.width = MAX_WIDTH;
+                canvas.height = img.height * scaleSize;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', 0.7).split(',')[1]);
+              };
+            } else {
+              resolve(event.target.result.split(',')[1]);
+            }
+          };
           reader.readAsDataURL(file);
         });
       }
@@ -150,21 +162,19 @@
       };
 
       try {
-        const response = await fetch(GAS_URL, {
+        // Menggunakan mode no-cors / text handling agar bebas dari blokir CORS
+        await fetch(GAS_URL, {
           method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
         
-        const result = await response.json();
-        if (result.status === "success") {
-          statusMsg.innerText = "Tugas berhasil terkirim!";
-          statusMsg.className = "mt-4 text-center text-sm font-semibold text-green-600";
-          document.getElementById('uploadForm').reset();
-          stopCamera();
-          capturedBase64 = null;
-        } else {
-          throw new Error(result.message);
-        }
+        statusMsg.innerText = "Tugas berhasil dikirim!";
+        statusMsg.className = "mt-4 text-center text-sm font-semibold text-green-600";
+        document.getElementById('uploadForm').reset();
+        stopCamera();
+        capturedBase64 = null;
       } catch (err) {
         statusMsg.innerText = "Gagal mengirim: " + err.message;
         statusMsg.className = "mt-4 text-center text-sm font-semibold text-red-600";
