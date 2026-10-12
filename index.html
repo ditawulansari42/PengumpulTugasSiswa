@@ -29,7 +29,7 @@
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Pilih File Foto Tugas</label>
-        <input type="file" id="fileInput" accept="image/*,application/pdf" required class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700">
+        <input type="file" id="fileInput" accept="image/*" required class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700">
       </div>
 
       <button type="submit" id="submitBtn" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 transition duration-200">Kirim Tugas</button>
@@ -39,79 +39,55 @@
   </div>
 
   <script>
-    // URL Web App Google Apps Script Terbaru Anda
-    const GAS_URL = "https://script.google.com/macros/s/AKfycby_SJh3qCUFa7vEt1M_pSHqV7DzQBDarzpE5um7AVorFsJ_QZlaJG7s7IU5BewPaIz39w/exec";
+    // URL Web App Terbaru Anda
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxSgnIxFf0fkAc5FdGpC6NupJGUuCq3puIGA7Hha-fa_i5KVH0ZAcDQKFFowXPT9E7FtQ/exec";
 
-    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+    document.getElementById('uploadForm').addEventListener('submit', function(e) {
       e.preventDefault();
       const submitBtn = document.getElementById('submitBtn');
       const statusMsg = document.getElementById('statusMessage');
 
       submitBtn.disabled = true;
       submitBtn.innerText = "Mengirim...";
-      statusMsg.innerText = "Proses mengunggah tugas...";
+      statusMsg.innerText = "Sedang mengunggah tugas...";
       statusMsg.className = "mt-4 text-center text-sm font-semibold text-blue-600";
 
       const fileInput = document.getElementById('fileInput');
-      if (fileInput.files.length === 0) {
-        alert("Silakan pilih file terlebih dahulu!");
-        submitBtn.disabled = false;
-        submitBtn.innerText = "Kirim Tugas";
-        return;
-      }
-
       const file = fileInput.files[0];
       const reader = new FileReader();
 
-      reader.onload = async function(event) {
-        let base64Data = "";
-        
-        // Kompres gambar otomatis sebelum dikirim
-        if (file.type.startsWith('image/')) {
-          base64Data = await new Promise((resolve) => {
-            const img = new Image();
-            img.src = event.target.result;
-            img.onload = function() {
-              const canvas = document.createElement('canvas');
-              const MAX_WIDTH = 800;
-              const scaleSize = MAX_WIDTH / img.width;
-              canvas.width = MAX_WIDTH;
-              canvas.height = img.height * scaleSize;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-              resolve(canvas.toDataURL('image/jpeg', 0.6).split(',')[1]);
-            };
-          });
-        } else {
-          base64Data = event.target.result.split(',')[1];
-        }
+      reader.onload = function(event) {
+        const base64Data = event.target.result.split(',')[1];
 
-        const payload = new URLSearchParams();
-        payload.append("nama", document.getElementById('nama').value);
-        payload.append("kelas", document.getElementById('kelas').value);
-        payload.append("mapel", document.getElementById('mapel').value);
-        payload.append("fileName", `${document.getElementById('nama').value}_${file.name}`);
-        payload.append("mimeType", file.type.startsWith('image/') ? 'image/jpeg' : file.type);
-        payload.append("fileData", base64Data);
+        const formData = new URLSearchParams();
+        formData.append("nama", document.getElementById('nama').value);
+        formData.append("kelas", document.getElementById('kelas').value);
+        formData.append("mapel", document.getElementById('mapel').value);
+        formData.append("fileName", document.getElementById('nama').value + "_" + file.name);
+        formData.append("mimeType", file.type);
+        formData.append("fileData", base64Data);
 
-        try {
-          await fetch(GAS_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: payload.toString()
-          });
-
+        fetch(GAS_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: formData.toString()
+        })
+        .then(() => {
           statusMsg.innerText = "Tugas berhasil dikirim!";
           statusMsg.className = "mt-4 text-center text-sm font-semibold text-green-600";
           document.getElementById('uploadForm').reset();
-        } catch (err) {
+        })
+        .catch(err => {
           statusMsg.innerText = "Gagal mengirim: " + err.message;
           statusMsg.className = "mt-4 text-center text-sm font-semibold text-red-600";
-        } finally {
+        })
+        .finally(() => {
           submitBtn.disabled = false;
           submitBtn.innerText = "Kirim Tugas";
-        }
+        });
       };
 
       reader.readAsDataURL(file);
